@@ -251,6 +251,29 @@ environment:
 
 Core dumps and error reports are written to `./core-dumps/`, which is mounted as a Docker volume.
 
+## Testing with Patched JDK Versions
+
+If you want to test this issue with a patched version of the JDK that includes SIGABRT handling, you can switch the base image in the `Dockerfile`.
+
+Edit lines 46-48 of the `Dockerfile`:
+
+```diff
+  # Uncomment the base image you want to use
+- FROM amazoncorretto:25 AS amazoncorretto-25
+- #FROM amazoncorretto-25-patched AS amazoncorretto-25
++ #FROM amazoncorretto:25 AS amazoncorretto-25
++ FROM amazoncorretto-25-patched AS amazoncorretto-25
+```
+
+After making this change, rebuild and restart the containers:
+
+```bash
+docker-compose down
+docker-compose up --build -d
+```
+
+This allows you to verify that a properly patched JDK would handle SIGABRT signals and generate core dumps even for the `/crash/free` endpoint.
+
 ## Real-World Impact
 
 This issue affects production Java applications that use native libraries. Common scenarios include:

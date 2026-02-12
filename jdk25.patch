@@ -1,0 +1,58 @@
+diff -crB src/hotspot/os/posix/os_posix.cpp src/hotspot/os/posix/os_posix.cpp
+*** src/hotspot/os/posix/os_posix.cpp  2026-01-20 22:13:15.000000000 +0000
+--- src/hotspot/os/posix/os_posix.cpp      2026-02-12 19:33:53.379389143 +0000
+***************
+*** 2088,2093 ****
+--- 2088,2096 ----
+    os::shutdown();
+    if (dump_core) {
+      LINUX_ONLY(if (DumpPrivateMappingsInCore) ClassLoader::close_jrt_image();)
++     // Reset SIGABRT to default handler to avoid recursive signal handling
++     // when abort() raises SIGABRT during core dump generation
++     ::signal(SIGABRT, SIG_DFL);
+      ::abort(); // dump core
+    }
+    os::_exit(1);
+***************
+*** 2103,2108 ****
+--- 2106,2113 ----
+      // ::raise is not noreturn, even though with SIGKILL it definitely won't
+      // return.  Hence "fall through" to ::abort, which is declared noreturn.
+    }
++   // Reset SIGABRT to default handler to avoid recursive signal handling
++   ::signal(SIGABRT, SIG_DFL);
+    ::abort();
+  }
+  
+diff -crB src/hotspot/os/posix/signals_posix.cpp src/hotspot/os/posix/signals_posix.cpp
+*** src/hotspot/os/posix/signals_posix.cpp     2026-01-20 22:13:15.000000000 +0000
+--- src/hotspot/os/posix/signals_posix.cpp 2026-02-12 19:34:59.950782535 +0000
+***************
+*** 530,536 ****
+  // or breakpoint) that the VM was generating for its own correct operation.
+  //
+  // This routine may recognize any of the following kinds of signals:
+! //    SIGBUS, SIGSEGV, SIGILL, SIGFPE, SIGQUIT, SIGPIPE, SIGXFSZ, SIGUSR1.
+  // It should be consulted by handlers for any of those signals.
+  //
+  // The caller of this routine must pass in the three arguments supplied
+--- 530,536 ----
+  // or breakpoint) that the VM was generating for its own correct operation.
+  //
+  // This routine may recognize any of the following kinds of signals:
+! //    SIGBUS, SIGSEGV, SIGILL, SIGFPE, SIGQUIT, SIGPIPE, SIGXFSZ, SIGABRT, SIGUSR1.
+  // It should be consulted by handlers for any of those signals.
+  //
+  // The caller of this routine must pass in the three arguments supplied
+***************
+*** 1320,1325 ****
+--- 1320,1326 ----
+    set_signal_handler(SIGFPE);
+    PPC64_ONLY(set_signal_handler(SIGTRAP);)
+    set_signal_handler(SIGXFSZ);
++   set_signal_handler(SIGABRT); // Handle abort() calls from native libraries (e.g., glibc malloc errors)
+    if (!ReduceSignalUsage) {
+      // Install BREAK_SIGNAL's handler in early initialization phase, in
+      // order to reduce the risk that an attach client accidentally forces
+
+
