@@ -1,6 +1,6 @@
 plugins {
-	id 'org.jetbrains.kotlin.jvm' version '2.2.21'
-	id 'org.jetbrains.kotlin.plugin.spring' version '2.2.21'
+	id 'org.jetbrains.kotlin.jvm' version '2.3.10'
+	id 'org.jetbrains.kotlin.plugin.spring' version '2.3.10'
 	id 'org.springframework.boot' version '4.0.2'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -11,7 +11,8 @@ description = 'Demo project for Spring Boot'
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(24)
+		languageVersion = JavaLanguageVersion.of(25)
+		vendor = JvmVendorSpec.AMAZON
 	}
 }
 
@@ -21,6 +22,7 @@ repositories {
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter'
+	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.jetbrains.kotlin:kotlin-reflect'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
@@ -29,10 +31,48 @@ dependencies {
 
 kotlin {
 	compilerOptions {
+		jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25
 		freeCompilerArgs.addAll '-Xjsr305=strict', '-Xannotation-default-target=param-property'
 	}
 }
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+tasks.register('compileNative', Exec) {
+	def javaHome = System.getenv('JAVA_HOME')
+	if (javaHome == null) {
+		javaHome = System.getProperty('java.home')
+	}
+
+	def osName = System.getProperty('os.name').toLowerCase()
+	def outputDir = file("${buildDir}/resources/main")
+	def sourceFile = file('src/main/c/native_crasher.c')
+
+	def outputFile
+	def includes = ["-I${javaHome}/include"]
+
+	if (osName.contains('mac') || osName.contains('darwin')) {
+		outputFile = file("${outputDir}/libnativecrasher.dylib")
+		includes.add("-I${javaHome}/include/darwin")
+	} else if (osName.contains('linux')) {
+		outputFile = file("${outputDir}/libnativecrasher.so")
+		includes.add("-I${javaHome}/include/linux")
+	} else {
+		throw new GradleException("Unsupported OS: ${osName}")
+	}
+
+	commandLine(['gcc', '-shared', '-fPIC', '-o', outputFile.absolutePath, sourceFile.absolutePath] + includes)
+
+	doFirst {
+		outputDir.mkdirs()
+	}
+
+	inputs.file(sourceFile)
+	outputs.file(outputFile)
+}
+
+tasks.named('processResources') {
+	dependsOn 'compileNative'
 }
