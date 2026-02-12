@@ -16,7 +16,7 @@ In production environments, this means:
 
 HotSpot handles signals like `SIGSEGV`, `SIGBUS`, `SIGFPE`, and `SIGILL`, but **NOT SIGABRT**.
 
-Reference: [signals_posix.cpp:1352-1358](https://github.com/openjdk/jdk/blob/37dc1be67d4c15a040dc99dbc105c3269c65063d/src/hotspot/os/posix/signals_posix.cpp#L1352-L1358)
+Reference: [signals_posix.cpp:1352-1358](https://github.com/openjdk/jdk/blob/c73f05bec95c3ef0d8b6235b67478352db9a48a9/src/hotspot/os/posix/signals_posix.cpp#L1352-L1358)
 
 ## What This PoC Demonstrates
 
@@ -35,8 +35,8 @@ This Spring Boot application provides three REST endpoints that trigger differen
 
 ```bash
 # Clone the repository
-git clone https://github.com/atorrescogollo/poc-jdk-sigtrap-coredump-handling.git
-cd poc-jdk-sigtrap-coredump-handling
+git clone https://github.com/atorrescogollo/poc-jdk-sigabrt-coredump-bug.git
+cd poc-jdk-sigabrt-coredump-bug
 
 # Start the application
 docker-compose up -d
@@ -292,8 +292,8 @@ When glibc's malloc implementation detects corruption, it calls `abort()`, which
 
 ## References
 
-- [OpenJDK signals_posix.cpp](https://github.com/openjdk/jdk/blob/master/src/hotspot/os/posix/signals_posix.cpp)
-- [OpenJDK os_posix.cpp](https://github.com/openjdk/jdk/blob/master/src/hotspot/os/posix/os_posix.cpp)
+- [OpenJDK signals_posix.cpp](https://github.com/openjdk/jdk/blob/c73f05bec95c3ef0d8b6235b67478352db9a48a9/src/hotspot/os/posix/signals_posix.cpp)
+- [OpenJDK os_posix.cpp](https://github.com/openjdk/jdk/blob/c73f05bec95c3ef0d8b6235b67478352db9a48a9/src/hotspot/os/posix/os_posix.cpp)
 
 ## Author
 
