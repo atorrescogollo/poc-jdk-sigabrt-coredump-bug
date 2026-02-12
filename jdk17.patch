@@ -1,0 +1,44 @@
+diff --git a/src/hotspot/os/posix/os_posix.cpp b/src/hotspot/os/posix/os_posix.cpp
+index ae058dd34..ca1a26290 100644
+--- a/src/hotspot/os/posix/os_posix.cpp
++++ b/src/hotspot/os/posix/os_posix.cpp
+@@ -1968,6 +1968,9 @@ void os::abort(bool dump_core, void* siginfo, const void* context) {
+   os::shutdown();
+   if (dump_core) {
+     LINUX_ONLY(if (DumpPrivateMappingsInCore) ClassLoader::close_jrt_image();)
++    // Reset SIGABRT to default handler to avoid recursive signal handling
++    // when abort() raises SIGABRT during core dump generation
++    ::signal(SIGABRT, SIG_DFL);
+     ::abort(); // dump core
+   }
+   ::_exit(1);
+@@ -1981,6 +1984,8 @@ void os::die() {
+     // and don't take the time to generate a core file.
+     os::signal_raise(SIGKILL);
+   } else {
++    // Reset SIGABRT to default handler to avoid recursive signal handling
++    ::signal(SIGABRT, SIG_DFL);
+     ::abort();
+   }
+ }
+diff --git a/src/hotspot/os/posix/signals_posix.cpp b/src/hotspot/os/posix/signals_posix.cpp
+index c2e5d50bb..20d9b875c 100644
+--- a/src/hotspot/os/posix/signals_posix.cpp
++++ b/src/hotspot/os/posix/signals_posix.cpp
+@@ -534,7 +534,7 @@ public:
+ // or breakpoint) that the VM was generating for its own correct operation.
+ //
+ // This routine may recognize any of the following kinds of signals:
+-//    SIGBUS, SIGSEGV, SIGILL, SIGFPE, SIGQUIT, SIGPIPE, SIGXFSZ, SIGUSR1.
++//    SIGBUS, SIGSEGV, SIGILL, SIGFPE, SIGQUIT, SIGPIPE, SIGXFSZ, SIGABRT, SIGUSR1.
+ // It should be consulted by handlers for any of those signals.
+ //
+ // The caller of this routine must pass in the three arguments supplied
+@@ -1275,6 +1275,7 @@ void install_signal_handlers() {
+   set_signal_handler(SIGFPE);
+   PPC64_ONLY(set_signal_handler(SIGTRAP);)
+   set_signal_handler(SIGXFSZ);
++  set_signal_handler(SIGABRT);  // Handle abort() calls from native libraries (e.g., glibc malloc errors)
+
+ #if defined(__APPLE__)
+   // lldb (gdb) installs both standard BSD signal handlers, and mach exception
