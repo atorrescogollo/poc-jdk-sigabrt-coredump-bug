@@ -1,6 +1,12 @@
 #include <jni.h>
 #include <stdlib.h>
 
+JNIEXPORT void JNICALL Java_com_example_demo_native_NativeCrasher_crashWithAbort
+  (JNIEnv *env, jobject obj)
+{
+    abort();
+}
+
 JNIEXPORT jstring JNICALL Java_com_example_demo_native_NativeCrasher_crashWithInvalidFree
   (JNIEnv *env, jobject obj)
 {

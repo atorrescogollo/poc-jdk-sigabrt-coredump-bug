@@ -5,6 +5,7 @@ object NativeCrasher {
         LibraryLoader.load()
     }
 
+    external fun crashWithAbort(): String
     external fun crashWithInvalidFree(): String
     external fun crashWithNullPointer(): String
 }

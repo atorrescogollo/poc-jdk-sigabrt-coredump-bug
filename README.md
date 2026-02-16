@@ -20,11 +20,12 @@ Reference: [signals_posix.cpp:1352-1358](https://github.com/openjdk/jdk/blob/c73
 
 ## What This PoC Demonstrates
 
-This Spring Boot application provides three REST endpoints that trigger different types of crashes to demonstrate the inconsistency:
+This Spring Boot application provides four REST endpoints that trigger different types of crashes to demonstrate the inconsistency:
 
 1. **`/crash/unsafe`** - Java Unsafe memory access → SIGSEGV → ✅ **Core dump created**
 2. **`/crash/null`** - Native null pointer dereference → SIGSEGV → ✅ **Core dump created**
-3. **`/crash/free`** - Native invalid free() → SIGABRT → ❌ **NO core dump (THE BUG)**
+3. **`/crash/abort`** - Native direct abort() call → SIGABRT → ❌ **NO core dump (THE BUG)**
+4. **`/crash/free`** - Native invalid free() → SIGABRT → ❌ **NO core dump (THE BUG)**
 
 ## Prerequisites
 
@@ -130,7 +131,7 @@ docker-compose logs
 
 ✅ **Result:** Error report generated, JVM caught the signal
 
-**Code (src/main/c/native_crasher.c:12-18):**
+**Code (src/main/c/native_crasher.c:17-23):**
 
 ```c
 JNIEXPORT jstring JNICALL Java_com_example_demo_native_NativeCrasher_crashWithNullPointer
@@ -142,9 +143,54 @@ JNIEXPORT jstring JNICALL Java_com_example_demo_native_NativeCrasher_crashWithNu
 }
 ```
 
-### Test 3: Invalid free() Call - THE BUG
+### Test 3: Direct abort() Call - THE BUG
 
-This test demonstrates the actual issue: native code attempts to free a stack variable, causing glibc to detect the error and call `abort()`, which raises SIGABRT.
+This test demonstrates the issue directly: native code calls `abort()`, which raises SIGABRT without any JVM intervention.
+
+```bash
+# Restart the service
+docker-compose restart
+
+# Trigger the crash
+curl localhost:8080/crash/abort
+
+# Check the logs
+docker-compose logs
+```
+
+**Expected output:**
+
+The process will simply exit with no output or minimal output, depending on the system.
+
+❌ **Result:**
+
+- Process exits immediately
+- **NO error report file generated**
+- **NO core dump created**
+- No JVM signal handler invoked
+
+**Code (src/main/c/native_crasher.c:4-7):**
+
+```c
+JNIEXPORT void JNICALL Java_com_example_demo_native_NativeCrasher_crashWithAbort
+  (JNIEnv *env, jobject obj)
+{
+    abort();
+}
+```
+
+**Code (src/main/kotlin/com/example/demo/controller/CrashController.kt:13-16):**
+
+```kotlin
+@GetMapping("/abort")
+fun crashWithAbort(): String {
+    return NativeCrasher.crashWithAbort()
+}
+```
+
+### Test 4: Invalid free() Call - THE BUG
+
+This test demonstrates the actual issue in a real-world scenario: native code attempts to free a stack variable, causing glibc to detect the error and call `abort()`, which raises SIGABRT.
 
 ```bash
 # Restart the service
@@ -176,7 +222,7 @@ src/tcmalloc.cc:333] Attempt to free invalid pointer 0xffff38000b60
 - **NO core dump created**
 - No JVM signal handler invoked
 
-**Code (src/main/c/native_crasher.c:4-10):**
+**Code (src/main/c/native_crasher.c:9-15):**
 
 ```c
 JNIEXPORT jstring JNICALL Java_com_example_demo_native_NativeCrasher_crashWithInvalidFree
@@ -188,7 +234,7 @@ JNIEXPORT jstring JNICALL Java_com_example_demo_native_NativeCrasher_crashWithIn
 }
 ```
 
-**Code (src/main/kotlin/com/example/demo/controller/CrashController.kt:13-16):**
+**Code (src/main/kotlin/com/example/demo/controller/CrashController.kt:18-21):**
 
 ```kotlin
 @GetMapping("/free")
@@ -209,7 +255,7 @@ ls -lh core-dumps/
 cat core-dumps/hs_err_pid*.log
 ```
 
-For tests 1 and 2, you should see `hs_err_pid*.log` files. For test 3, you won't.
+For tests 1 and 2, you should see `hs_err_pid*.log` files. For tests 3 and 4, you won't.
 
 ## What's Different?
 
@@ -217,6 +263,7 @@ For tests 1 and 2, you should see `hs_err_pid*.log` files. For test 3, you won't
 | -------------------- | ----------- | ---------- | ------------- |
 | Unsafe memory access | SIGSEGV     | ✅         | ✅            |
 | Native null pointer  | SIGSEGV     | ✅         | ✅            |
+| Direct abort()       | **SIGABRT** | ❌         | ❌            |
 | Invalid free()       | **SIGABRT** | ❌         | ❌            |
 
 The critical difference is the signal type. HotSpot handles SIGSEGV but not SIGABRT.

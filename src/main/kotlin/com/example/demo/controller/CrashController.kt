@@ -10,6 +10,11 @@ import sun.misc.Unsafe
 @RequestMapping("/crash")
 class CrashController {
 
+    @GetMapping("/abort")
+    fun crashWithAbort(): String {
+        return NativeCrasher.crashWithAbort()
+    }
+
     @GetMapping("/free")
     fun crashWithFree(): String {
         return NativeCrasher.crashWithInvalidFree()
